@@ -32,26 +32,27 @@ Codigo fuente
 import sqlite3
 import openai
 import ipywidgets as widgets
-from IPython.display import display, clear_output, Image
+from IPython.display import display, clear_output
 import os
 import io
 from PIL import Image as PILImage
 import pytesseract
+import datetime
 
-
+# Configuración de pytesseract (asegúrate de ajustar esta ruta)
 pytesseract.pytesseract.tesseract_cmd = r'<ruta_a_tu_tesseract.exe>'
 
-openai.api_key = 'me la bloquea chatGPT'
-
-
+# Inicialización y configuración de la base de datos y la API de OpenAI
+openai.api_key = 'clave api'
 conn = sqlite3.connect('asistente_ai.db')
 c = conn.cursor()
+
+# Creación de la tabla en SQLite si no existe
 c.execute('''CREATE TABLE IF NOT EXISTS historial
              (id INTEGER PRIMARY KEY, solicitud TEXT, respuesta TEXT, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
 conn.commit()
 
 def generar_respuesta_gpt3(texto_entrada):
-    """Genera una respuesta utilizando OpenAI GPT-3."""
     try:
         respuesta = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-1106",
@@ -61,7 +62,6 @@ def generar_respuesta_gpt3(texto_entrada):
             ]
         )
         mensaje_respuesta = respuesta.choices[0].message['content']
-        # Guardar en la base de datos SQLite
         c.execute("INSERT INTO historial (solicitud, respuesta) VALUES (?, ?)", (texto_entrada, mensaje_respuesta))
         conn.commit()
         return mensaje_respuesta
@@ -69,7 +69,6 @@ def generar_respuesta_gpt3(texto_entrada):
         return f"Error: {e}"
 
 def al_clicar(boton):
-    """Maneja el evento de clic en el botón de enviar."""
     with area_respuesta:
         clear_output()
         print("Procesando tu solicitud...")
@@ -77,15 +76,20 @@ def al_clicar(boton):
         print(f"Respuesta: {respuesta_gpt3}")
 
 def procesar_y_mostrar_imagen(cargador):
-    """Procesa la imagen cargada usando OCR y muestra el texto extraído."""
     for nombre, archivo in cargador.value.items():
-        imagen_bytes = io.BytesIO(archivo['content'])
-        texto = pytesseract.image_to_string(PILImage.open(imagen_bytes))
+        # Generar un nombre de archivo único
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        nombre_archivo = f"{timestamp}_{nombre}"
+        with open(nombre_archivo, 'wb') as f:
+            f.write(archivo['content'])
+        # Procesar la imagen con OCR
+        texto = pytesseract.image_to_string(PILImage.open(nombre_archivo))
         print(f"Texto extraído de {nombre}:")
         print(texto)
-        display(PILImage.open(imagen_bytes))
+        # Mostrar la imagen
+        display(PILImage.open(nombre_archivo))
 
-
+# Widgets y visualización
 texto_entrada = widgets.Text(placeholder='Escribe aquí tu pregunta', description='Pregunta:', disabled=False)
 boton_enviar = widgets.Button(description='Enviar', button_style='', tooltip='Haz clic para enviar')
 area_respuesta = widgets.Output()
@@ -93,6 +97,4 @@ cargador_imagenes = widgets.FileUpload(accept='image/*', multiple=False)
 cargador_imagenes.observe(procesar_y_mostrar_imagen, names='value')
 
 boton_enviar.on_click(al_clicar)
-
-
 display(widgets.VBox([texto_entrada, boton_enviar, area_respuesta, cargador_imagenes]))
