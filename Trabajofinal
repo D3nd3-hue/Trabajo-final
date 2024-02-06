@@ -14,7 +14,7 @@ import pytesseract
 pytesseract.pytesseract.tesseract_cmd = r'<ruta_a_tu_tesseract.exe>'
 
 # Inicializar la clave de API de OpenAI
-openai.api_key = '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'
+openai.api_key = ''
 
 # Conectar a la base de datos SQLite y crear la tabla si no existe
 conn = sqlite3.connect('asistente_ai.db')
